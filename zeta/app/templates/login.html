@@ -1,0 +1,45 @@
+		<include href="header.html" />
+
+		<div id="updateModal" class="modal mini-form">
+			<div class="modal-body">
+				<form id="login-form" method="post" action="{{ @base }}/login">
+					<fieldset>
+						<p><input type="text" id="inputUsername" name="inputUsername" placeholder="user"></p>
+						<p><input type="password" id="inputPassword" name="inputPassword" placeholder="password"></p>
+						<p><button class="btn btn-custom" type="submit">sign-in</button></p>
+					</fieldset>
+				</form>
+			</div>
+		</div>
+
+		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+		<script src="scripts/bootstrap.min.js"></script>
+		<script>
+			$(document).ready(function()
+			{
+				$('#login-form').submit(function(e)
+				{
+					e.preventDefault();
+
+					$.ajax(
+					{
+						url: $(this).attr('action'),
+						type: 'POST',
+						data: $(this).serialize(),
+						dataType: 'html',
+						success: function(data)
+						{
+							if (data == 'failed')
+							{
+								$('#inputUsername').val('');
+								$('#inputPassword').val('');
+							}
+							else window.location.href = '{{ @base }}/';
+						}
+					});
+				});
+			});
+		</script>
+	</body>
+
+</html>

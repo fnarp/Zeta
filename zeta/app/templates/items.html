@@ -1,0 +1,40 @@
+<repeat group="{{ @items }}" value="{{ @item }}">
+	<check if="{{ @item[5]==1 }}">
+		<true><tr class="feed-item unread-item"></true>
+		<false><tr class="feed-item"></false>
+	</check>
+		<td><a href="{{ @item[1] }}" target="_blank"><img src="{{ @base}}/{{ @cache }}/{{ @item[0] }}.png" width="16" height="16" /></a></td>
+		<td><span class="ellipsis">{{ @item[2] }}</span></td>
+		<td>
+			<a data-guid="{{ @item[8] }}" class="accordion-toggle">
+				<span class="ellipsis">
+					<check if="{{ @item[5]==1 }}">
+						<true><strong>{{ @item[3] | raw }}</strong></true>
+						<false>{{ @item[3] | raw }}</false>
+					</check>
+					<span class="muted"> - {{ @item[7] }}</span>
+				</span>
+			</a>
+		</td>
+		<td class="align-right" nowrap>
+			{{ @item[9] }}
+		</td>
+		<td>
+			<check if="{{ @item[6]==1 }}">
+				<true><i class="icon-star item-star starred" data-guid="{{ @item[8] }}"></i></true>
+				<false><i class="icon-star item-star" data-guid="{{ @item[8] }}"></i></false>
+			</check>
+		</td>
+		<td><a href="{{ @item[4] }}" target="_blank" title="Go to the original article"><i class="icon-share"></i></a></td>
+	</tr>
+	<tr class="feed-item-content-row">
+		<td colspan="6" class="feed-item-content">
+			<div class="accordion-body collapse" id="collapse-{{ @item[8] }}">
+				<div class="accordion-inner">
+					<h3><a href="{{ @item[4] }}" target="_blank">{{ @item[3] | raw }}</a></h3>
+					<div class="article-content"></div>
+				</div>
+			</div>
+		</td>
+	</tr>
+</repeat>

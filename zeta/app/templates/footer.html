@@ -1,0 +1,228 @@
+		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+		<script src="scripts/bootstrap.min.js"></script>
+		<script>
+			$(document).ready(function()
+			{
+				var currentContentID;
+				var lastStart;
+				var lastCount;
+				var lastid;
+
+				var unread = 0;
+				var total = 0;
+				var starred = 0;
+
+				loadData('{{ @page }}', 0, 60, false);
+
+				$('#mark-as-read').click(function(e)
+				{
+					cleanNotifications();
+
+					$.ajax({
+						url: '{{ @base }}/query/markallasread', type: 'GET', dataType: 'html',
+						beforeSend: function()
+						{
+							$('#loading-animation').show();
+							$('#item-list h4').hide();
+							$('#item-list #load-more').hide();
+							$('#item-list > table > tbody').html('');
+						},
+						success: function(data)
+						{
+							loadData(currentContentID, 0, 60, false);
+						}
+					})
+				});
+
+				$('#load-more').click(function(e)
+				{
+					loadData(currentContentID, lastStart + lastCount, 60, true);
+				});
+
+				$('#force-update').click(function(e)
+				{
+					$.ajax(
+					{
+						url: '{{ @base }}/update', type: 'GET', dataType: 'html',
+						beforeSend: function()
+						{
+							$('#updateModal').modal({
+								keyboard: false,
+								backdrop: 'static'
+							});
+						},
+						complete: function()
+						{
+							$('#updateModal').modal('hide');
+							loadData(currentContentID, 0, 60, false);
+						}
+					});
+				});
+
+				$('#nav-tabs').bind('show', function(e)
+				{
+					var pattern = /#.+/gi
+					var contentID = (e.target.toString().match(pattern)[0]).replace('#', '');
+
+					window.scrollTo(0, 0);
+					cleanNotifications();
+					loadData(contentID, 0, 60, false);
+				});
+
+				setInterval(function()
+				{
+					$.ajax(
+					{
+						url: '{{ @base }}/query/since/' + lastid, type: 'GET', dataType: 'html',
+						success: function(data)
+						{
+							if (data > 0 && currentContentID != 'starred')
+							{
+								if ($('#notifications').has('a#alert-new-items').length == 0)
+								{
+									$('#item-list h4').hide();
+									$('#notifications').append(
+											'<h4><a id="alert-new-items">' + data + ' new items available.</a></h4>'
+										);
+								}
+								else
+								{
+									$('a#alert-new-items').html(data + ' new items available.');
+								}
+
+								refreshCounts(unread + parseInt(data, 10), starred, total, false);
+
+								$('a#alert-new-items').click(function(e)
+								{
+									$('#notifications > h4').remove();
+									loadData(currentContentID, 0, 60, false);
+								});
+							}
+						}
+					});
+				}, {{ @refreshTimer }} * 1000);
+
+				function loadData(contentID, start, count, append)
+				{
+					$.ajax(
+					{
+						url: '{{ @base }}/query/' + contentID + '/' + start + '/' + count, type: 'GET', dataType: 'json',
+						beforeSend: function()
+						{
+							$('#loading-animation').show();
+							$('#item-list h4').hide();
+							$('#item-list #load-more').hide();
+						},
+						success: function(data)
+						{
+							$('#loading-animation').hide();
+
+							currentContentID = contentID;
+							lastStart = start;
+							lastCount = count;
+
+							if (append) $('#item-list > table > tbody').append(data.htmldata);
+							else        $('#item-list > table > tbody').html(data.htmldata);
+
+							lastid = data.lastid;
+							refreshCounts(data.unreadCount, data.starredCount, data.totalCount);
+
+							if (contentID == 'unread') refreshLoadButton(unread);
+							else if (contentID == 'all') refreshLoadButton(total);
+							else if (contentID == 'starred') refreshLoadButton(starred);
+
+							$('.accordion-toggle').click(function(e)
+							{
+								var obj = $(this);
+
+								if (obj.has('strong').length)
+								{
+									$.ajax(
+									{
+										url: '{{ @base }}/query/markasread/' + obj.data('guid'), type: 'GET', dataType: 'html',
+										success: function(data)
+										{
+											refreshCounts(unread - 1, starred, total);
+											obj.find('strong').contents().unwrap();
+										}
+									});
+								}
+
+								var collapseObj = $('.table').find('#collapse-' + obj.data('guid'));
+								var articleObj = collapseObj.find('.article-content');
+
+								if ($.trim(articleObj.html()) == '')
+								{
+									$.ajax(
+									{
+										url: '{{ @base }}/query/content/' + obj.data('guid'), type: 'GET', dataType: 'html',
+										success: function(data)
+										{
+											articleObj.html(data);
+											collapseObj.collapse('show');
+										}
+									});
+								}
+								else collapseObj.collapse('hide');
+
+								collapseObj.on('hidden', function() { articleObj.html(''); });
+							});
+
+							$('.item-star').click(function(e)
+							{
+								var obj = $(this);
+								var is_starred = obj.hasClass('starred');
+								var u = '{{ @base }}/query/' + (is_starred ? 'unstar' : 'star') + '/' + obj.data('guid');
+
+								$.ajax(
+								{
+									url: u, type: 'GET', dataType: 'html',
+									success: function(data)
+									{
+										if (is_starred) obj.removeClass('starred');
+										else obj.addClass('starred');
+									}
+								});
+							});
+						}
+					})
+				}
+
+				function refreshLoadButton(c)
+				{
+					if (c > lastStart + lastCount)
+					{
+						$('#item-list #load-more').show();
+						$('#item-list h4').hide();
+					}
+					else
+					{
+						$('#item-list #load-more').hide();
+						$('#item-list h4').show();
+					}
+				}
+
+				function refreshCounts(u, s, t, save)
+				{
+					save = typeof save !== 'undefined' ? save : true;
+
+					document.title = ((u > 0) ? '(' + u + ') ' : '') + 'Zeta';
+					$('#unread-count').html('(' + u + ')');
+
+					if (save)
+					{
+						unread = u;
+						starred = s;
+						total = t;
+					}
+				}
+
+				function cleanNotifications()
+				{
+					$('#notifications').html('');
+				}
+			});
+		</script>
+	</body>
+
+</html>

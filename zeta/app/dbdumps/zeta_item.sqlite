@@ -1,0 +1,11 @@
+CREATE TABLE "zeta_item" (
+  "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+  "feedid" integer NOT NULL,
+  "guid" text NOT NULL,
+  "date" text NOT NULL,
+  "unread" integer NOT NULL DEFAULT '1',
+  "url" text NOT NULL,
+  "title" text NULL,
+  "content" text NULL, "starred" integer NOT NULL DEFAULT '0',
+  FOREIGN KEY ("feedid") REFERENCES "feed" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+);

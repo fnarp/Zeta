@@ -1,0 +1,19 @@
+SET NAMES utf8;
+SET foreign_key_checks = 0;
+SET time_zone = 'SYSTEM';
+SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
+
+CREATE TABLE `zeta_item` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `feedid` int(11) NOT NULL,
+  `guid` varchar(32) NOT NULL,
+  `date` datetime NOT NULL,
+  `unread` tinyint(1) NOT NULL DEFAULT '1',
+  `url` text NOT NULL,
+  `title` text,
+  `content` text,
+  `starred` tinyint(1) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `feedid` (`feedid`),
+  CONSTRAINT `zeta_item_ibfk_1` FOREIGN KEY (`feedid`) REFERENCES `zeta_feed` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

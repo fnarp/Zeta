@@ -1,0 +1,7 @@
+CREATE TABLE "zeta_feed" (
+  "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+  "hash" text NOT NULL,
+  "basetitle" text NULL,
+  "baseurl" text NULL,
+  "xmlurl" text NOT NULL
+);
