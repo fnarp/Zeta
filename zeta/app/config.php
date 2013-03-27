@@ -56,6 +56,9 @@ $config['mysql_dbname'] = '';
 // Show/hide the force update button
 $config['show_force_update_button'] = true;
 
+// Show/hide the unread count in the favicon
+$config['show_favicon_counter'] = true;
+
 // Feeds
 $config['feed_urls'] = array(
 	'http://rss.slashdot.org/Slashdot/slashdot',

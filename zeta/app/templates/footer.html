@@ -7,6 +7,7 @@
 				var lastStart;
 				var lastCount;
 				var lastid;
+				var canvas;
 
 				var unread = 0;
 				var total = 0;
@@ -215,6 +216,50 @@
 						starred = s;
 						total = t;
 					}
+
+					// Favicon
+					<check if="{{ @favicon_counter }}">
+						<true>
+						var num = parseInt(u, 10);
+
+						if (num == 0)
+						{
+							$('link[rel$=icon]').remove();
+							$('head').append($('<link rel="shortcut icon" href="images/favicon.png" />'));
+							return;
+						}
+
+						canvas = canvas || $('<canvas />')[0];
+
+						if(canvas.getContext)
+						{
+							$('<img />').load(function(e)
+							{
+								canvas.height = canvas.width = 32;
+								var ctx = canvas.getContext('2d');
+								ctx.clearRect(0, 0, canvas.width, canvas.height);
+								ctx.drawImage(this, 0, 0);
+
+								if(num > 99)
+									num = '99!';
+
+								ctx.shadowColor = ctx.strokeStyle = 'rgba(53,98,116,1.0)';
+								ctx.shadowOffsetX = ctx.shadowOffsetY = 0;
+								ctx.shadowBlur  = 8;
+								ctx.lineWidth   = 6;
+								ctx.font = '20px Normal Tahoma, sans-serif';
+								ctx.textAlign = 'right';
+								ctx.strokeText(num, 30, 18);
+								ctx.fillStyle = "#fff";
+								ctx.shadowBlur = 0;
+								ctx.fillText(num, 30, 18);
+
+								$('link[rel$=icon]').remove();
+								$('head').append($('<link rel="shortcut icon" />').attr('href', canvas.toDataURL('image/png')));
+							}).attr('src', 'images/favicon.png');
+						}
+						</true>
+					</check>
 				}
 
 				function cleanNotifications()

@@ -53,6 +53,7 @@ $app->set('cache', $config['cache_dir']);
 $app->set('refreshTimer', $config['check_for_new_items']);
 $app->set('page', $config['start_page']);
 $app->set('force_update', $config['show_force_update_button']);
+$app->set('favicon_counter', $config['show_favicon_counter']);
 
 $app->route('GET /', function($app)
 {
