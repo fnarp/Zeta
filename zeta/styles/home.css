@@ -38,7 +38,7 @@ html, body, .container-fluid, .row-fluid, #sidebar
 
 #sidebar-content
 {
-	padding-top: 20px;
+	padding-top: 30px;
 }
 
 #sidebar-footer
@@ -133,7 +133,6 @@ html, body, .container-fluid, .row-fluid, #sidebar
 .table th, .table td
 { 
 	border: 1px transparent solid;
-	border-left: 4px transparent solid;
 }
 
 .table td:first-child
