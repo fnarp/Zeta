@@ -149,6 +149,12 @@
 									});
 								}
 
+								$('.collapse').each(function(i)
+								{
+									if ($.trim($(this).find('.article-content').html()) != '')
+										$(this).collapse('hide');
+								});
+
 								var collapseObj = $('.table').find('#collapse-' + obj.data('guid'));
 								var articleObj = collapseObj.find('.article-content');
 
