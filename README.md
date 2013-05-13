@@ -9,7 +9,7 @@ It's lightweight with a streamlined interface, supports most common feed standar
 
 Zeta draws inspiration from [Google Reader](http://en.wikipedia.org/wiki/Google_Reader), [Feedly](http://en.wikipedia.org/wiki/Feedly) and [selfoss](http://selfoss.aditu.de/).
 
-![Zeta Screenshot](https://github.com/Chman/Zeta/raw/master/thumbnail1.png) ![Zeta Screenshot](https://github.com/Chman/Zeta/raw/master/thumbnail2.png) ![Zeta Screenshot](https://github.com/Chman/Zeta/raw/master/thumbnail3.png)
+![Zeta Screenshot](https://github.com/Chman/Zeta/raw/master/thumbnail1.png) ![Zeta Screenshot](https://github.com/Chman/Zeta/raw/master/thumbnail2.png)
 
 Requirements
 ------------
