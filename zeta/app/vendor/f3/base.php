@@ -1,7 +1,7 @@
 <?php
 
 /*
-	Copyright (c) 2009-2012 F3::Factory/Bong Cosca, All rights reserved.
+	Copyright (c) 2009-2013 F3::Factory/Bong Cosca, All rights reserved.
 
 	This file is part of the Fat-Free Framework (http://fatfree.sf.net).
 
@@ -19,7 +19,7 @@ final class Base {
 	//@{ Framework details
 	const
 		PACKAGE='Fat-Free Framework',
-		VERSION='3.0.5-Release';
+		VERSION='3.0.7-Release';
 	//@}
 
 	//@{ HTTP status codes (RFC 2616)
@@ -88,7 +88,8 @@ final class Base {
 		E_Fatal='Fatal error: %s',
 		E_Open='Unable to open %s',
 		E_Routes='No routes specified',
-		E_Method='Invalid method %s';
+		E_Method='Invalid method %s',
+		E_Hive='Invalid hive key %s';
 	//@}
 
 	private
@@ -106,18 +107,18 @@ final class Base {
 		$null=NULL;
 
 	/**
-		Sync PHP global with corresponding hive key
-		@return array
-		@param $key string
+	*	Sync PHP global with corresponding hive key
+	*	@return array
+	*	@param $key string
 	**/
 	function sync($key) {
 		return $this->hive[$key]=&$GLOBALS['_'.$key];
 	}
 
 	/**
-		Return the parts of specified hive key
-		@return array
-		@param $key string
+	*	Return the parts of specified hive key
+	*	@return array
+	*	@param $key string
 	**/
 	private function cut($key) {
 		return preg_split('/\[\h*[\'"]?(.+?)[\'"]?\h*\]|(->)|\./',
@@ -125,11 +126,11 @@ final class Base {
 	}
 
 	/**
-		Get hive key reference/contents; Add non-existent hive keys,
-		array elements, and object properties by default
-		@return mixed
-		@param $key string
-		@param $add bool
+	*	Get hive key reference/contents; Add non-existent hive keys,
+	*	array elements, and object properties by default
+	*	@return mixed
+	*	@param $key string
+	*	@param $add bool
 	**/
 	function &ref($key,$add=TRUE) {
 		$parts=$this->cut($key);
@@ -137,6 +138,8 @@ final class Base {
 			@session_start();
 			$this->sync('SESSION');
 		}
+		elseif (!preg_match('/^\w+$/',$parts[0]))
+			trigger_error(sprintf(self::E_Hive,$this->stringify($key)));
 		if ($add)
 			$var=&$this->hive;
 		else
@@ -170,9 +173,9 @@ final class Base {
 	}
 
 	/**
-		Return TRUE if hive key is not empty
-		@return bool
-		@param $key string
+	*	Return TRUE if hive key is not empty (or timestamp and TTL if cached)
+	*	@return bool
+	*	@param $key string
 	**/
 	function exists($key) {
 		$ref=&$this->ref($key,FALSE);
@@ -182,11 +185,11 @@ final class Base {
 	}
 
 	/**
-		Bind value to hive key
-		@return mixed
-		@param $key string
-		@param $val mixed
-		@param $ttl int
+	*	Bind value to hive key
+	*	@return mixed
+	*	@param $key string
+	*	@param $val mixed
+	*	@param $ttl int
 	**/
 	function set($key,$val,$ttl=0) {
 		if (preg_match('/^(GET|POST|COOKIE)\b(.+)/',$key,$expr)) {
@@ -203,9 +206,6 @@ final class Base {
 				break;
 			case 'ENCODING':
 				$val=ini_set('default_charset',$val);
-				break;
-			case 'JAR':
-				call_user_func_array('session_set_cookie_params',$val);
 				break;
 			case 'FALLBACK':
 				$this->fallback=$val;
@@ -224,17 +224,21 @@ final class Base {
 		}
 		$ref=&$this->ref($key);
 		$ref=$val;
-		if ($ttl)
+		if (preg_match('/^JAR\b/',$key))
+			call_user_func_array(
+				'session_set_cookie_params',$this->hive['JAR']);
+		$cache=Cache::instance();
+		if ($cache->exists($hash=$this->hash($key).'.var') || $ttl)
 			// Persist the key-value pair
-			Cache::instance()->set($this->hash($key).'.var',$val);
+			$cache->set($hash,$val,$ttl);
 		return $ref;
 	}
 
 	/**
-		Retrieve contents of hive key
-		@return mixed
-		@param $key string
-		@param $args string|array
+	*	Retrieve contents of hive key
+	*	@return mixed
+	*	@param $key string
+	*	@param $args string|array
 	**/
 	function get($key,$args=NULL) {
 		if (is_string($val=$this->ref($key,FALSE)) && !is_null($args))
@@ -251,9 +255,9 @@ final class Base {
 	}
 
 	/**
-		Unset hive key
-		@return NULL
-		@param $key string
+	*	Unset hive key
+	*	@return NULL
+	*	@param $key string
 	**/
 	function clear($key) {
 		// Normalize array literal
@@ -307,11 +311,11 @@ final class Base {
 	}
 
 	/**
-		Multi-variable assignment using associative array
-		@return NULL
-		@param $vars array
-		@param $prefix string
-		@param $ttl int
+	*	Multi-variable assignment using associative array
+	*	@return NULL
+	*	@param $vars array
+	*	@param $prefix string
+	*	@param $ttl int
 	**/
 	function mset(array $vars,$prefix='',$ttl=0) {
 		foreach ($vars as $key=>$val)
@@ -319,18 +323,18 @@ final class Base {
 	}
 
 	/**
-		Publish hive contents
-		@return array
+	*	Publish hive contents
+	*	@return array
 	**/
 	function hive() {
 		return $this->hive;
 	}
 
 	/**
-		Copy contents of hive variable to another
-		@return mixed
-		@param $src string
-		@param $dst string
+	*	Copy contents of hive variable to another
+	*	@return mixed
+	*	@param $src string
+	*	@param $dst string
 	**/
 	function copy($src,$dst) {
 		$ref=&$this->ref($dst);
@@ -338,10 +342,10 @@ final class Base {
 	}
 
 	/**
-		Concatenate string to hive string variable
-		@return string
-		@param $key string
-		@param $val string
+	*	Concatenate string to hive string variable
+	*	@return string
+	*	@param $key string
+	*	@param $val string
 	**/
 	function concat($key,$val) {
 		$ref=&$this->ref($key);
@@ -350,10 +354,10 @@ final class Base {
 	}
 
 	/**
-		Swap keys and values of hive array variable
-		@return array
-		@param $key string
-		@public
+	*	Swap keys and values of hive array variable
+	*	@return array
+	*	@param $key string
+	*	@public
 	**/
 	function flip($key) {
 		$ref=&$this->ref($key);
@@ -361,10 +365,10 @@ final class Base {
 	}
 
 	/**
-		Add element to the end of hive array variable
-		@return mixed
-		@param $key string
-		@param $val mixed
+	*	Add element to the end of hive array variable
+	*	@return mixed
+	*	@param $key string
+	*	@param $val mixed
 	**/
 	function push($key,$val) {
 		$ref=&$this->ref($key);
@@ -373,9 +377,9 @@ final class Base {
 	}
 
 	/**
-		Remove last element of hive array variable
-		@return mixed
-		@param $key string
+	*	Remove last element of hive array variable
+	*	@return mixed
+	*	@param $key string
 	**/
 	function pop($key) {
 		$ref=&$this->ref($key);
@@ -383,10 +387,10 @@ final class Base {
 	}
 
 	/**
-		Add element to the beginning of hive array variable
-		@return mixed
-		@param $key string
-		@param $val mixed
+	*	Add element to the beginning of hive array variable
+	*	@return mixed
+	*	@param $key string
+	*	@param $val mixed
 	**/
 	function unshift($key,$val) {
 		$ref=&$this->ref($key);
@@ -395,9 +399,9 @@ final class Base {
 	}
 
 	/**
-		Remove first element of hive array variable
-		@return mixed
-		@param $key string
+	*	Remove first element of hive array variable
+	*	@return mixed
+	*	@param $key string
 	**/
 	function shift($key) {
 		$ref=&$this->ref($key);
@@ -405,18 +409,18 @@ final class Base {
 	}
 
 	/**
-		Convert backslashes to slashes
-		@return string
-		@param $str string
+	*	Convert backslashes to slashes
+	*	@return string
+	*	@param $str string
 	**/
 	function fixslashes($str) {
 		return $str?strtr($str,'\\','/'):$str;
 	}
 
 	/**
-		Split comma-, semi-colon, or pipe-separated string
-		@return array
-		@param $str string
+	*	Split comma-, semi-colon, or pipe-separated string
+	*	@return array
+	*	@param $str string
 	**/
 	function split($str) {
 		return array_map('trim',
@@ -424,9 +428,9 @@ final class Base {
 	}
 
 	/**
-		Convert PHP expression/value to compressed exportable string
-		@return string
-		@param $arg mixed
+	*	Convert PHP expression/value to compressed exportable string
+	*	@return string
+	*	@param $arg mixed
 	**/
 	function stringify($arg) {
 		switch (gettype($arg)) {
@@ -450,15 +454,14 @@ final class Base {
 				}
 				return 'array('.$str.')';
 			default:
-				return var_export(
-					is_string($arg)?addcslashes($arg,'\''):$arg,TRUE);
+				return var_export($arg,TRUE);
 		}
 	}
 
 	/**
-		Flatten array values and return as CSV string
-		@return string
-		@param $args array
+	*	Flatten array values and return as CSV string
+	*	@return string
+	*	@param $args array
 	**/
 	function csv(array $args) {
 		return implode(',',array_map('stripcslashes',
@@ -466,9 +469,9 @@ final class Base {
 	}
 
 	/**
-		Convert snakecase string to camelcase
-		@return string
-		@param $str string
+	*	Convert snakecase string to camelcase
+	*	@return string
+	*	@param $str string
 	**/
 	function camelcase($str) {
 		return preg_replace_callback(
@@ -481,28 +484,28 @@ final class Base {
 	}
 
 	/**
-		Convert camelcase string to snakecase
-		@return string
-		@param $str string
+	*	Convert camelcase string to snakecase
+	*	@return string
+	*	@param $str string
 	**/
 	function snakecase($str) {
 		return strtolower(preg_replace('/[[:upper:]]/','_\0',$str));
 	}
 
 	/**
-		Return -1 if specified number is negative, 0 if zero,
-		or 1 if the number is positive
-		@return int
-		@param $num mixed
+	*	Return -1 if specified number is negative, 0 if zero,
+	*	or 1 if the number is positive
+	*	@return int
+	*	@param $num mixed
 	**/
 	function sign($num) {
 		return $num?($num/abs($num)):0;
 	}
 
 	/**
-		Generate 64bit/base36 hash
-		@return string
-		@param $str
+	*	Generate 64bit/base36 hash
+	*	@return string
+	*	@param $str
 	**/
 	function hash($str) {
 		return str_pad(base_convert(
@@ -510,19 +513,19 @@ final class Base {
 	}
 
 	/**
-		Return Base64-encoded equivalent
-		@return string
-		@param $data string
-		@param $mime string
+	*	Return Base64-encoded equivalent
+	*	@return string
+	*	@param $data string
+	*	@param $mime string
 	**/
 	function base64($data,$mime) {
 		return 'data:'.$mime.';base64,'.base64_encode($data);
 	}
 
 	/**
-		Convert special characters to HTML entities
-		@return string
-		@param $str string
+	*	Convert special characters to HTML entities
+	*	@return string
+	*	@param $str string
 	**/
 	function encode($str) {
 		return @htmlentities($str,ENT_COMPAT,$this->hive['ENCODING'],FALSE)?:
@@ -530,27 +533,27 @@ final class Base {
 	}
 
 	/**
-		Convert HTML entities back to characters
-		@return string
-		@param $str string
+	*	Convert HTML entities back to characters
+	*	@return string
+	*	@param $str string
 	**/
 	function decode($str) {
 		return html_entity_decode($str,ENT_COMPAT,$this->hive['ENCODING']);
 	}
 
 	/**
-		Remove HTML tags (except those enumerated) and non-printable
-		characters to mitigate XSS/code injection attacks
-		@return mixed
-		@param $var mixed
-		@param $tags string
+	*	Remove HTML tags (except those enumerated) and non-printable
+	*	characters to mitigate XSS/code injection attacks
+	*	@return mixed
+	*	@param $var mixed
+	*	@param $tags string
 	**/
 	function scrub(&$var,$tags=NULL) {
-		if (is_string($var)) {
-			if ($tags)
-				$tags='<'.implode('><',$this->split($tags)).'>';
-			$var=trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/','',
-				($tags=='*')?$var:strip_tags($var,$tags)));
+		if (is_string($var) && strlen($var)) {
+			if ($tags!='*')
+				$var=strip_tags($var,
+					'<'.implode('><',$this->split($tags)).'>');
+			$var=trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/','',$var));
 		}
 		elseif (is_array($var))
 			foreach ($var as &$val) {
@@ -561,40 +564,46 @@ final class Base {
 	}
 
 	/**
-		Encode characters to equivalent HTML entities
-		@return string
-		@param $arg mixed
+	*	Encode characters to equivalent HTML entities
+	*	@return string
+	*	@param $arg mixed
 	**/
 	function esc($arg) {
 		if (is_string($arg))
 			return $this->encode($arg);
-		if (is_array($arg))
+		if (is_array($arg) || is_a($arg,'ArrayAccess'))
 			foreach ($arg as &$val) {
 				$val=$this->esc($val);
 				unset($val);
 			}
+		if (is_object($arg))
+			foreach (get_object_vars($arg) as $key=>$val)
+				$arg->$key=$this->esc($val);
 		return $arg;
 	}
 
 	/**
-		Decode HTML entities to equivalent characters
-		@return string
-		@param $arg mixed
+	*	Decode HTML entities to equivalent characters
+	*	@return string
+	*	@param $arg mixed
 	**/
 	function raw($arg) {
 		if (is_string($arg))
 			return $this->decode($arg);
-		if (is_array($arg))
+		if (is_array($arg) || is_a($arg,'ArrayAccess'))
 			foreach ($arg as &$val) {
 				$val=$this->raw($val);
 				unset($val);
 			}
+		if (is_object($arg))
+			foreach (get_object_vars($arg) as $key=>$val)
+				$arg->$key=$this->raw($val);
 		return $arg;
 	}
 
 	/**
-		Return locale-aware formatted string
-		@return string
+	*	Return locale-aware formatted string
+	*	@return string
 	**/
 	function format() {
 		$args=func_get_args();
@@ -607,6 +616,7 @@ final class Base {
 			'(?:,(?P<mod>(?:\s*\w+(?:\s+\{.+?\}\s*,?)?)*))?)?\}/',
 			function($expr) use($args,$conv) {
 				extract($expr);
+				extract($conv);
 				if (!array_key_exists($pos,$args))
 					return $expr[0];
 				if (isset($type))
@@ -626,24 +636,55 @@ final class Base {
 							if (isset($mod))
 								switch ($mod) {
 									case 'integer':
-										return
-											number_format(
-												$args[$pos],0,'',
-												$conv['thousands_sep']);
+										return number_format(
+											$args[$pos],0,'',$thousands_sep);
 									case 'currency':
-										return
-											$conv['currency_symbol'].
-											number_format(
-												$args[$pos],
-												$conv['frac_digits'],
-												$conv['decimal_point'],
-												$conv['thousands_sep']);
+										if (function_exists('money_format'))
+											return money_format(
+												'%n',$args[$pos]);
+										$fmt=array(
+											0=>'(nc)',1=>'(n c)',
+											2=>'(nc)',10=>'+nc',
+											11=>'+n c',12=>'+ nc',
+											20=>'nc+',21=>'n c+',
+											22=>'nc +',30=>'n+c',
+											31=>'n +c',32=>'n+ c',
+											40=>'nc+',41=>'n c+',
+											42=>'nc +',100=>'(cn)',
+											101=>'(c n)',102=>'(cn)',
+											110=>'+cn',111=>'+c n',
+											112=>'+ cn',120=>'cn+',
+											121=>'c n+',122=>'cn +',
+											130=>'+cn',131=>'+c n',
+											132=>'+ cn',140=>'c+n',
+											141=>'c+ n',142=>'c +n'
+										);
+										if ($args[$pos]<0) {
+											$sgn=$negative_sign;
+											$pre='n';
+										}
+										else {
+											$sgn=$positive_sign;
+											$pre='p';
+										}
+										return str_replace(
+											array('+','n','c'),
+											array($sgn,number_format(
+												abs($args[$pos]),
+												$frac_digits,
+												$decimal_point,
+												$thousands_sep),
+												$currency_symbol),
+											$fmt[(int)(
+												(int)${$pre.'_cs_precedes'}.
+												(int)${$pre.'_sign_posn'}.
+												(int)${$pre.'_sep_by_space'}
+											)]
+										);
 									case 'percent':
-										return
-											number_format(
-												$args[$pos]*100,0,
-												$conv['decimal_point'],
-												$conv['thousands_sep']).'%';
+										return number_format(
+											$args[$pos]*100,0,$decimal_point,
+											$thousands_sep).'%';
 								}
 							break;
 						case 'date':
@@ -664,9 +705,9 @@ final class Base {
 	}
 
 	/**
-		Assign/auto-detect language
-		@return string
-		@param $code string
+	*	Assign/auto-detect language
+	*	@return string
+	*	@param $code string
 	**/
 	function language($code=NULL) {
 		if (!$code) {
@@ -706,9 +747,9 @@ final class Base {
 	}
 
 	/**
-		Transfer lexicon entries to hive
-		@return NULL
-		@param $path string
+	*	Transfer lexicon entries to hive
+	*	@return NULL
+	*	@param $path string
 	**/
 	function lexicon($path) {
 		$lex=array();
@@ -737,9 +778,9 @@ final class Base {
 	}
 
 	/**
-		Return string representation of PHP value
-		@return string
-		@param $arg mixed
+	*	Return string representation of PHP value
+	*	@return string
+	*	@param $arg mixed
 	**/
 	function serialize($arg) {
 		switch (strtolower($this->hive['SERIALIZER'])) {
@@ -753,9 +794,9 @@ final class Base {
 	}
 
 	/**
-		Return PHP value derived from string
-		@return string
-		@param $arg mixed
+	*	Return PHP value derived from string
+	*	@return string
+	*	@param $arg mixed
 	**/
 	function unserialize($arg) {
 		switch (strtolower($this->hive['SERIALIZER'])) {
@@ -769,20 +810,21 @@ final class Base {
 	}
 
 	/**
-		Send HTTP/1.1 status header; Return text equivalent of status code
-		@return string
-		@param $code int
+	*	Send HTTP/1.1 status header; Return text equivalent of status code
+	*	@return string
+	*	@param $code int
 	**/
 	function status($code) {
+		$reason=@constant('self::HTTP_'.$code);
 		if (PHP_SAPI!='cli')
-			header('HTTP/1.1 '.$code);
-		return @constant('self::HTTP_'.$code);
+			header('HTTP/1.1 '.$code.' '.$reason);
+		return $reason;
 	}
 
 	/**
-		Send cache metadata to HTTP client
-		@return NULL
-		@param $secs int
+	*	Send cache metadata to HTTP client
+	*	@return NULL
+	*	@param $secs int
 	**/
 	function expire($secs=0) {
 		if (PHP_SAPI!='cli') {
@@ -806,13 +848,13 @@ final class Base {
 	}
 
 	/**
-		Log error; Execute ONERROR handler if defined, else display
-		default error page (HTML for synchronous requests, JSON string
-		for AJAX requests)
-		@return NULL
-		@param $code int
-		@param $text string
-		@param $trace array
+	*	Log error; Execute ONERROR handler if defined, else display
+	*	default error page (HTML for synchronous requests, JSON string
+	*	for AJAX requests)
+	*	@return NULL
+	*	@param $code int
+	*	@param $text string
+	*	@param $trace array
 	**/
 	function error($code,$text='',array $trace=NULL) {
 		$prior=$this->hive['ERROR'];
@@ -882,12 +924,12 @@ final class Base {
 	}
 
 	/**
-		Mock HTTP request
-		@return NULL
-		@param $pattern string
-		@param $args array
-		@param $headers array
-		@param $body string
+	*	Mock HTTP request
+	*	@return NULL
+	*	@param $pattern string
+	*	@param $args array
+	*	@param $headers array
+	*	@param $body string
 	**/
 	function mock($pattern,array $args=NULL,array $headers=NULL,$body=NULL) {
 		$types=array('sync','ajax');
@@ -919,15 +961,20 @@ final class Base {
 	}
 
 	/**
-		Bind handler to route pattern
-		@return NULL
-		@param $pattern string
-		@param $handler callback
-		@param $ttl int
-		@param $kbps int
+	*	Bind handler to route pattern
+	*	@return NULL
+	*	@param $pattern string|array
+	*	@param $handler callback
+	*	@param $ttl int
+	*	@param $kbps int
 	**/
 	function route($pattern,$handler,$ttl=0,$kbps=0) {
 		$types=array('sync','ajax');
+		if (is_array($pattern)) {
+			foreach ($pattern as $item)
+				$this->route($item,$handler,$ttl,$kbps);
+			return;
+		}
 		preg_match('/([\|\w]+)\h+([^\h]+)'.
 			'(?:\h+\[('.implode('|',$types).')\])?/',$pattern,$parts);
 		if (empty($parts[2]))
@@ -938,36 +985,43 @@ final class Base {
 		foreach ($this->split($parts[1]) as $verb) {
 			if (!preg_match('/'.self::VERBS.'/',$verb))
 				$this->error(501,$verb.' '.$this->hive['URI']);
-			$this->hive['ROUTES'][$parts[2]][$type]
-				[strtoupper($verb)]=array($handler,$ttl,$kbps);
+			$this->hive['ROUTES'][str_replace('@',"\x00".'@',$parts[2])]
+				[$type][strtoupper($verb)]=array($handler,$ttl,$kbps);
 		}
 	}
 
 	/**
-		Reroute to specified URI
-		@return NULL
-		@param $uri string
+	*	Reroute to specified URI
+	*	@return NULL
+	*	@param $uri string
+	*	@param $permanent bool
 	**/
-	function reroute($uri) {
+	function reroute($uri,$permanent=FALSE) {
 		if (PHP_SAPI!='cli') {
 			@session_commit();
 			header('Location: '.(preg_match('/^https?:\/\//',$uri)?
 				$uri:($this->hive['BASE'].$uri)));
-			$this->status($this->hive['VERB']=='GET'?301:303);
+			$this->status($permanent?301:303);
 			die;
 		}
 		$this->mock('GET '.$uri);
 	}
 
 	/**
-		Provide ReST interface by mapping HTTP verb to class method
-		@param $url string
-		@param $class string
-		@param $ttl int
-		@param $kbps int
+	*	Provide ReST interface by mapping HTTP verb to class method
+	*	@return NULL
+	*	@param $url string
+	*	@param $class string
+	*	@param $ttl int
+	*	@param $kbps int
 	**/
 	function map($url,$class,$ttl=0,$kbps=0) {
-		$fluid=preg_match('/@\w+/',$url);
+		if (is_array($url)) {
+			foreach ($url as $item)
+				$this->map($item,$class,$ttl,$kbps);
+			return;
+		}
+		$fluid=preg_match('/@\w+/',$class);
 		foreach (explode('|',self::VERBS) as $method)
 			if ($fluid ||
 				method_exists($class,$method) ||
@@ -977,9 +1031,9 @@ final class Base {
 	}
 
 	/**
-		Return TRUE if IPv4 address exists in DNSBL
-		@return bool
-		@param $ip string
+	*	Return TRUE if IPv4 address exists in DNSBL
+	*	@return bool
+	*	@param $ip string
 	**/
 	function blacklisted($ip) {
 		if ($this->hive['DNSBL'] &&
@@ -1000,8 +1054,8 @@ final class Base {
 	}
 
 	/**
-		Match routes against incoming URI
-		@return NULL
+	*	Match routes against incoming URI
+	*	@return NULL
 	**/
 	function run() {
 		if ($this->blacklisted($this->hive['IP']))
@@ -1014,22 +1068,23 @@ final class Base {
 		krsort($this->hive['ROUTES']);
 		// Convert to BASE-relative URL
 		$req=preg_replace(
-			'/^'.preg_quote($this->hive['BASE'],'/').'\b(.*)/','\1',
+			'/^'.preg_quote($this->hive['BASE'],'/').'(\/.*|$)/','\1',
 			$this->hive['URI']
 		);
 		$allowed=array();
 		$case=$this->hive['CASELESS']?'i':'';
-		foreach ($this->hive['ROUTES'] as $url=>$types) {
+		foreach ($this->hive['ROUTES'] as $url=>$routes) {
+			$url=str_replace("\x00".'@','@',$url);
 			if (!preg_match('/^'.
 				preg_replace('/@(\w+\b)/','(?P<\1>[^\/\?]+)',
 				str_replace('\*','(.*)',preg_quote($url,'/'))).
 				'\/?(?:\?.*)?$/'.$case.'um',$req,$args))
 				continue;
 			$route=NULL;
-			if (isset($types[$this->hive['AJAX']+1]))
-				$route=$types[$this->hive['AJAX']+1];
-			elseif (isset($types[self::REQ_SYNC|self::REQ_AJAX]))
-				$route=$types[self::REQ_SYNC|self::REQ_AJAX];
+			if (isset($routes[$this->hive['AJAX']+1]))
+				$route=$routes[$this->hive['AJAX']+1];
+			elseif (isset($routes[self::REQ_SYNC|self::REQ_AJAX]))
+				$route=$routes[self::REQ_SYNC|self::REQ_AJAX];
 			if (!$route)
 				continue;
 			if (isset($route[$this->hive['VERB']])) {
@@ -1056,6 +1111,7 @@ final class Base {
 				// Save matching route
 				$this->hive['PATTERN']=$url;
 				// Process request
+				$body='';
 				$now=microtime(TRUE);
 				if (preg_match('/GET|HEAD/',$this->hive['VERB']) &&
 					isset($ttl)) {
@@ -1065,14 +1121,7 @@ final class Base {
 					$cached=$cache->exists(
 						$hash=$this->hash($this->hive['VERB'].' '.
 							$this->hive['URI']).'.url',$data);
-					if ($cached && $cached+$ttl>$now) {
-						if (isset($headers['If-Modified-Since']) &&
-							strtotime($headers['If-Modified-Since'])>
-							floor($cached)) {
-							// HTTP client-cached page is fresh
-							$this->status(304);
-							die;
-						}
+					if ($cached && $cached[0]+$ttl>$now) {
 						// Retrieve from cache backend
 						list($headers,$body)=$data;
 						if (PHP_SAPI!='cli')
@@ -1085,14 +1134,16 @@ final class Base {
 				}
 				else
 					$this->expire(0);
-				ob_start();
-				// Call route handler
-				$this->call($handler,array($this,$args),
-					'beforeroute,afterroute');
-				$body=ob_get_clean();
-				if ($ttl && !error_get_last())
-					// Save to cache backend
-					$cache->set($hash,array(headers_list(),$body),$ttl);
+				if (!strlen($body)) {
+					ob_start();
+					// Call route handler
+					$this->call($handler,array($this,$args),
+						'beforeroute,afterroute');
+					$body=ob_get_clean();
+					if ($ttl && !error_get_last())
+						// Save to cache backend
+						$cache->set($hash,array(headers_list(),$body),$ttl);
+				}
 				$this->hive['RESPONSE']=$body;
 				if (!$this->hive['QUIET']) {
 					if ($kbps) {
@@ -1126,11 +1177,11 @@ final class Base {
 	}
 
 	/**
-		Execute callback/hooks (supports 'class->method' format)
-		@return mixed|FALSE
-		@param $func callback
-		@param $args mixed
-		@param $hooks string
+	*	Execute callback/hooks (supports 'class->method' format)
+	*	@return mixed|FALSE
+	*	@param $func callback
+	*	@param $args mixed
+	*	@param $hooks string
 	**/
 	function call($func,$args=NULL,$hooks='') {
 		if (!is_array($args))
@@ -1173,11 +1224,11 @@ final class Base {
 	}
 
 	/**
-		Execute specified callbacks in succession; Apply same arguments
-		to all callbacks
-		@return array
-		@param $funcs array|string
-		@param $args mixed
+	*	Execute specified callbacks in succession; Apply same arguments
+	*	to all callbacks
+	*	@return array
+	*	@param $funcs array|string
+	*	@param $args mixed
 	**/
 	function chain($funcs,$args=NULL) {
 		$out=array();
@@ -1187,11 +1238,11 @@ final class Base {
 	}
 
 	/**
-		Execute specified callbacks in succession; Relay result of
-		previous callback as argument to the next callback
-		@return array
-		@param $funcs array|string
-		@param $args mixed
+	*	Execute specified callbacks in succession; Relay result of
+	*	previous callback as argument to the next callback
+	*	@return array
+	*	@param $funcs array|string
+	*	@param $args mixed
 	**/
 	function relay($funcs,$args=NULL) {
 		foreach (is_array($funcs)?$funcs:$this->split($funcs) as $func)
@@ -1200,9 +1251,9 @@ final class Base {
 	}
 
 	/**
-		Configure framework according to .ini-style file settings
-		@return NULL
-		@param $file string
+	*	Configure framework according to .ini-style file settings
+	*	@return NULL
+	*	@param $file string
 	**/
 	function config($file) {
 		preg_match_all(
@@ -1251,11 +1302,11 @@ final class Base {
 	}
 
 	/**
-		Create mutex, invoke callback then drop ownership when done
-		@return mixed
-		@param $id string
-		@param $func callback
-		@param $args mixed
+	*	Create mutex, invoke callback then drop ownership when done
+	*	@return mixed
+	*	@param $id string
+	*	@param $func callback
+	*	@param $args mixed
 	**/
 	function mutex($id,$func,$args=NULL) {
 		if (!is_dir($tmp=$this->hive['TEMP']))
@@ -1276,10 +1327,10 @@ final class Base {
 	}
 
 	/**
-		Read file (with option to apply Unix LF as standard line ending)
-		@return string
-		@param $file string
-		@param $lf bool
+	*	Read file (with option to apply Unix LF as standard line ending)
+	*	@return string
+	*	@param $file string
+	*	@param $lf bool
 	**/
 	function read($file,$lf=FALSE) {
 		$out=file_get_contents($file);
@@ -1287,20 +1338,20 @@ final class Base {
 	}
 
 	/**
-		Exclusive file write
-		@return int|FALSE
-		@param $file string
-		@param $data mixed
-		@param $append bool
+	*	Exclusive file write
+	*	@return int|FALSE
+	*	@param $file string
+	*	@param $data mixed
+	*	@param $append bool
 	**/
 	function write($file,$data,$append=FALSE) {
 		return file_put_contents($file,$data,LOCK_EX|($append?FILE_APPEND:0));
 	}
 
 	/**
-		Apply syntax highlighting
-		@return string
-		@param $text string
+	*	Apply syntax highlighting
+	*	@return string
+	*	@param $text string
 	**/
 	function highlight($text) {
 		$out='';
@@ -1325,18 +1376,18 @@ final class Base {
 	}
 
 	/**
-		Dump expression with syntax highlighting
-		@return NULL
-		@param $expr mixed
+	*	Dump expression with syntax highlighting
+	*	@return NULL
+	*	@param $expr mixed
 	**/
 	function dump($expr) {
 		echo $this->highlight($this->stringify($expr));
 	}
 
 	/**
-		Namespace-aware class autoloader
-		@return mixed
-		@param $class string
+	*	Namespace-aware class autoloader
+	*	@return mixed
+	*	@param $class string
 	**/
 	protected function autoload($class) {
 		$class=$this->fixslashes(ltrim($class,'\\'));
@@ -1348,8 +1399,8 @@ final class Base {
 	}
 
 	/**
-		Execute framework/application shutdown sequence
-		@return NULL
+	*	Execute framework/application shutdown sequence
+	*	@return NULL
 	**/
 	function unload() {
 		if (($error=error_get_last()) &&
@@ -1363,8 +1414,8 @@ final class Base {
 	}
 
 	/**
-		Return class instance
-		@return object
+	*	Return class instance
+	*	@return object
 	**/
 	static function instance() {
 		if (!Registry::exists($class=__CLASS__))
@@ -1421,9 +1472,7 @@ final class Base {
 		$scheme=isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']=='on' ||
 			isset($headers['X-Forwarded-Proto']) &&
 			$headers['X-Forwarded-Proto']=='https'?'https':'http';
-		$base=implode('/',array_map('urlencode',
-			explode('/',$this->fixslashes(
-			preg_replace('/\/[^\/]+$/','',$_SERVER['SCRIPT_NAME'])))));
+		$base=preg_replace('/\/[^\/]+$/','',$_SERVER['PHP_SELF']);
 		call_user_func_array('session_set_cookie_params',
 			$jar=array(
 				'expire'=>0,
@@ -1437,6 +1486,12 @@ final class Base {
 		);
 		// Default configuration
 		$this->hive=array(
+			'AGENT'=>isset($headers['X-Operamini-Phone-UA'])?
+				$headers['X-Operamini-Phone-UA']:
+				(isset($headers['X-Skyfire-Phone'])?
+					$headers['X-Skyfire-Phone']:
+					(isset($headers['User-Agent'])?
+						$headers['User-Agent']:'')),
 			'AJAX'=>isset($headers['X-Requested-With']) &&
 				$headers['X-Requested-With']=='XMLHttpRequest',
 			'AUTOLOAD'=>'./',
@@ -1464,7 +1519,8 @@ final class Base {
 						$_SERVER['REMOTE_ADDR']:'')),
 			'JAR'=>$jar,
 			'LANGUAGE'=>isset($headers['Accept-Language'])?
-				$this->language($headers['Accept-Language']):$this->fallback,
+				$this->language($headers['Accept-Language']):
+				$this->fallback,
 			'LOCALES'=>'./',
 			'LOGS'=>'./',
 			'ONERROR'=>NULL,
@@ -1484,7 +1540,7 @@ final class Base {
 			'SERIALIZER'=>extension_loaded($ext='igbinary')?$ext:'php',
 			'TEMP'=>'tmp/',
 			'TIME'=>microtime(TRUE),
-			'TZ'=>ini_get('date.timezone'),
+			'TZ'=>@date_default_timezone_get('date.timezone'),
 			'UI'=>'./',
 			'UNLOAD'=>NULL,
 			'UPLOADS'=>'./',
@@ -1517,8 +1573,8 @@ final class Base {
 	}
 
 	/**
-		Wrap-up
-		@return NULL
+	*	Wrap-up
+	*	@return NULL
 	**/
 	function __destruct() {
 		Registry::clear(__CLASS__);
@@ -1538,10 +1594,10 @@ final class Cache {
 		$ref;
 
 	/**
-		Return timestamp of cache entry or FALSE if not found
-		@return float|FALSE
-		@param $key string
-		@param $val mixed
+	*	Return timestamp and TTL of cache entry or FALSE if not found
+	*	@return float|FALSE
+	*	@param $key string
+	*	@param $val mixed
 	**/
 	function exists($key,&$val=NULL) {
 		$fw=Base::instance();
@@ -1569,26 +1625,29 @@ final class Cache {
 		}
 		if (isset($raw)) {
 			list($val,$time,$ttl)=$fw->unserialize($raw);
-			if (!$ttl || $time+$ttl>microtime(TRUE))
-				return $time;
+			if ($ttl===0 || $time+$ttl>microtime(TRUE))
+				return array($time,$ttl);
 			$this->clear($key);
 		}
 		return FALSE;
 	}
 
 	/**
-		Store value in cache
-		@return mixed|FALSE
-		@param $key string
-		@param $val mixed
-		@param $ttl int
+	*	Store value in cache
+	*	@return mixed|FALSE
+	*	@param $key string
+	*	@param $val mixed
+	*	@param $ttl int
 	**/
 	function set($key,$val,$ttl=0) {
 		$fw=Base::instance();
 		if (!$this->dsn)
 			return TRUE;
 		$ndx=$this->prefix.'.'.$key;
-		$data=$fw->serialize(array($val,microtime(TRUE),$ttl));
+		$time=microtime(TRUE);
+		if ($cached=$this->exists($key))
+			list($time,$ttl)=$cached;
+		$data=$fw->serialize(array($val,$time,$ttl));
 		$parts=explode('=',$this->dsn,2);
 		switch ($parts[0]) {
 			case 'apc':
@@ -1606,18 +1665,18 @@ final class Cache {
 	}
 
 	/**
-		Retrieve value of cache entry
-		@return mixed|FALSE
-		@param $key string
+	*	Retrieve value of cache entry
+	*	@return mixed|FALSE
+	*	@param $key string
 	**/
 	function get($key) {
 		return $this->dsn && $this->exists($key,$data)?$data:FALSE;
 	}
 
 	/**
-		Delete cache entry
-		@return bool
-		@param $key string
+	*	Delete cache entry
+	*	@return bool
+	*	@param $key string
 	**/
 	function clear($key) {
 		if (!$this->dsn)
@@ -1640,10 +1699,10 @@ final class Cache {
 	}
 
 	/**
-		Clear contents of cache backend
-		@return bool
-		@param $suffix string
-		@param $lifetime int
+	*	Clear contents of cache backend
+	*	@return bool
+	*	@param $suffix string
+	*	@param $lifetime int
 	**/
 	function reset($suffix=NULL,$lifetime=0) {
 		if (!$this->dsn)
@@ -1662,9 +1721,10 @@ final class Cache {
 			case 'memcache':
 				foreach (memcache_get_extended_stats(
 					$this->ref,'slabs') as $slabs)
-					foreach (array_keys($slabs) as $id)
+					foreach (array_filter(array_keys($slabs),'is_numeric')
+						as $id)
 						foreach (memcache_get_extended_stats(
-							$this->ref,'cachedump',floor($id)) as $data)
+							$this->ref,'cachedump',$id) as $data)
 							if (is_array($data))
 								foreach ($data as $key=>$val)
 									if (preg_match($regex,$key) &&
@@ -1691,9 +1751,9 @@ final class Cache {
 	}
 
 	/**
-		Load/auto-detect cache backend
-		@return string
-		@param $dsn bool|string
+	*	Load/auto-detect cache backend
+	*	@return string
+	*	@param $dsn bool|string
 	**/
 	function load($dsn) {
 		if ($dsn=trim($dsn)) {
@@ -1727,8 +1787,8 @@ final class Cache {
 	}
 
 	/**
-		Return class instance
-		@return object
+	*	Return class instance
+	*	@return object
 	**/
 	static function instance() {
 		if (!Registry::exists($class=__CLASS__))
@@ -1747,8 +1807,8 @@ final class Cache {
 	}
 
 	/**
-		Wrap-up
-		@return NULL
+	*	Wrap-up
+	*	@return NULL
 	**/
 	function __destruct() {
 		Registry::clear(__CLASS__);
@@ -1760,18 +1820,20 @@ final class Cache {
 abstract class Prefab {
 
 	/**
-		Return class instance
-		@return object
+	*	Return class instance
+	*	@return object
 	**/
 	static function instance() {
-		if (!Registry::exists($class=get_called_class()))
-			Registry::set($class,new $class);
+		if (!Registry::exists($class=get_called_class())) {
+			$ref=new Reflectionclass($class);
+			Registry::set($class,$ref->newinstanceargs(func_get_args()));
+		}
 		return Registry::get($class);
 	}
 
 	/**
-		Wrap-up
-		@return NULL
+	*	Wrap-up
+	*	@return NULL
 	**/
 	function __destruct() {
 		Registry::clear(get_called_class());
@@ -1789,8 +1851,8 @@ class View extends Prefab {
 		$hive;
 
 	/**
-		Create sandbox for template execution
-		@return string
+	*	Create sandbox for template execution
+	*	@return string
 	**/
 	protected function sandbox() {
 		extract($this->hive);
@@ -1800,11 +1862,11 @@ class View extends Prefab {
 	}
 
 	/**
-		Render template
-		@return string
-		@param $file string
-		@param $mime string
-		@param $hive array
+	*	Render template
+	*	@return string
+	*	@param $file string
+	*	@param $mime string
+	*	@param $hive array
 	**/
 	function render($file,$mime='text/html',array $hive=NULL) {
 		$fw=Base::instance();
@@ -2170,9 +2232,9 @@ class ISO extends Prefab {
 	//@}
 
 	/**
-		Convert class constants to array
-		@return array
-		@param $prefix string
+	*	Convert class constants to array
+	*	@return array
+	*	@param $prefix string
 	**/
 	protected function constants($prefix) {
 		$ref=new ReflectionClass($this);
@@ -2187,16 +2249,16 @@ class ISO extends Prefab {
 	}
 
 	/**
-		Return list of languages indexed by ISO 639-1 language code
-		@return array
+	*	Return list of languages indexed by ISO 639-1 language code
+	*	@return array
 	**/
 	function languages() {
 		return $this->constants('LC_');
 	}
 
 	/**
-		Return list of countries indexed by ISO 3166-1 country code
-		@return array
+	*	Return list of countries indexed by ISO 3166-1 country code
+	*	@return array
 	**/
 	function countries() {
 		return $this->constants('CC_');
@@ -2212,37 +2274,37 @@ final class Registry {
 		$table;
 
 	/**
-		Return TRUE if object exists in catalog
-		@return bool
-		@param $key string
+	*	Return TRUE if object exists in catalog
+	*	@return bool
+	*	@param $key string
 	**/
 	static function exists($key) {
 		return isset(self::$table[$key]);
 	}
 
 	/**
-		Add object to catalog
-		@return object
-		@param $key string
-		@param $obj object
+	*	Add object to catalog
+	*	@return object
+	*	@param $key string
+	*	@param $obj object
 	**/
 	static function set($key,$obj) {
 		return self::$table[$key]=$obj;
 	}
 
 	/**
-		Retrieve object from catalog
-		@return object
-		@param $key string
+	*	Retrieve object from catalog
+	*	@return object
+	*	@param $key string
 	**/
 	static function get($key) {
 		return self::$table[$key];
 	}
 
 	/**
-		Remove object from catalog
-		@return NULL
-		@param $key string
+	*	Remove object from catalog
+	*	@return NULL
+	*	@param $key string
 	**/
 	static function clear($key) {
 		unset(self::$table[$key]);
