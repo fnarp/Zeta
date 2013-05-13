@@ -179,13 +179,13 @@ $app->route('GET /query/markasread/@guid', function($app, $params)
 	   ->save();
 });
 
-$app->route('GET /query/markallasread', function($app)
+$app->route('GET /query/markallasread/@id', function($app, $param)
 {
 	check_user($app);
 	
 	// Way faster with a raw query, don't really know the idiorm equivalent
 	ORM::for_table('zeta_item')
-	   ->raw_query('UPDATE `zeta_item` SET `unread` = 0 WHERE `unread` = 1')
+	   ->raw_query('UPDATE `zeta_item` SET `unread` = 0 WHERE `unread` = 1 AND id <= ' . $param['id'])
 	   ->find_many();
 });
 

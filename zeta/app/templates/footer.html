@@ -20,7 +20,7 @@
 					cleanNotifications();
 
 					$.ajax({
-						url: '{{ @base }}/query/markallasread', type: 'GET', dataType: 'html',
+						url: '{{ @base }}/query/markallasread/' + lastid, type: 'GET', dataType: 'html',
 						beforeSend: function()
 						{
 							$('#loading-animation').show();
