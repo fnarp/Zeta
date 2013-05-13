@@ -7,6 +7,9 @@
 $config['username'] = 'usename';
 $config['password'] = 'hash';
 
+// Sets the timezone (see http://www.php.net/manual/timezones.php for a list of supported timezones)
+$config['timezone'] = 'Europe/Paris';
+
 // Login cookie expiration (in seconds)
 $config['cookie_expiration'] = 60 * 60 * 24 * 30;
 

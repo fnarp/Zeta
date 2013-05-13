@@ -23,6 +23,8 @@ require_once dirname(__FILE__) . '/app/config.php';
 require_once dirname(__FILE__) . '/app/vendor/idiorm.php';
 $app = require_once dirname(__FILE__) . '/app/vendor/f3/base.php';
 
+date_default_timezone_set('Europe/Paris');
+
 if ($config['database_type'] == 'sqlite')
 {
 	ORM::configure('sqlite:' . dirname(__FILE__) . $config['sqlite_path']);
